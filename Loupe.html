@@ -1,0 +1,1398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1a1b1f">
+<title>Loupe</title>
+<style>
+/* Layout idea: dark-gray grid desk, one perforated value stamp per result, five-tab bottom bar for thumb reach.
+   Palette: gray ground, purple for action, yellow for value, red for flags. Single dark theme by choice. */
+:root{
+  color-scheme:dark;
+  --bg:#1a1b1f; --grid:#222429; --card:#25272d; --card2:#2d3038; --line:#3b3e49;
+  --text:#ecedf3; --mute:#a0a4b2;
+  --purple:#a58bff; --purple-d:#6d4bdc; --red:#ff5a6e; --red-d:#d82f45; --yellow:#ffcf4a; --green:#5fd6a4;
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Noto Serif",Georgia,serif;
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --cond:"Roboto Condensed","sans-serif-condensed","Arial Narrow",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;background:var(--bg)}
+body{
+  margin:0;font:16px/1.45 var(--sans);color:var(--text);background:var(--bg);
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:14px 14px;padding-bottom:calc(76px + env(safe-area-inset-bottom));
+}
+.stripe{height:10px;background:repeating-linear-gradient(-45deg,var(--red-d) 0 14px,var(--yellow) 14px 22px,var(--purple-d) 22px 36px,var(--bg) 36px 44px)}
+.top{background:var(--card);border-bottom:1px solid var(--line)}
+.brandrow{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:720px;margin:0 auto;padding:12px 16px}
+.brandrow h1{font:700 30px/1 var(--serif);margin:0;color:var(--yellow)}
+.brandrow p{margin:4px 0 0;font-size:13px;color:var(--mute)}
+.icon{width:44px;height:44px;border:1px solid var(--line);background:var(--card2);border-radius:4px;display:grid;place-items:center;color:var(--purple);cursor:pointer}
+main{max-width:720px;margin:0 auto;padding:4px 16px 24px}
+.tab{display:none}.tab.on{display:block}
+h2{font:700 22px/1.2 var(--serif);margin:18px 0 6px;color:var(--text);text-wrap:balance}
+h3{font:700 17px/1.25 var(--serif);margin:0;color:var(--yellow)}
+p{margin:6px 0}
+.lede{color:var(--mute);margin:0 0 10px;max-width:60ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:14px;margin:12px 0}
+label.field,.qlabel{display:block;font-size:14px;font-weight:600;margin:12px 0 4px;color:var(--text)}
+input[type=text],select,textarea{width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:4px;background:#1d1e23;font:inherit;color:var(--text)}
+input::placeholder{color:#767a89}
+textarea{min-height:160px;font-size:13px;font-family:ui-monospace,Menlo,Consolas,monospace}
+.help{font-size:13px;color:var(--mute);margin:4px 0 0}
+button,.btn{font:inherit;cursor:pointer}
+.primary{width:100%;min-height:52px;border:0;border-radius:4px;background:var(--purple-d);color:#fff;font-weight:700;font-size:17px;margin-top:14px}
+.primary:disabled{opacity:.55}
+.ghost{min-height:44px;padding:0 14px;border:1px solid var(--purple);border-radius:4px;background:transparent;color:var(--purple);font-weight:600}
+.ghost:disabled{opacity:.55}
+.danger{border-color:var(--red);color:var(--red)}
+a.lnk{display:inline-flex;align-items:center;min-height:38px;padding:0 12px;border:1px solid var(--line);border-radius:19px;background:var(--card2);color:var(--text);font-size:14px;font-weight:600;text-decoration:none}
+a.lnk.key{border-color:var(--yellow);color:var(--yellow)}
+a.lnk:active{background:#383b46}
+:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+
+/* photo pickers: the real file input sits invisibly on top of the control */
+.drop,.slot,.filebtn,.camera{position:relative}
+.pick{position:absolute;inset:0;width:100%;height:100%;min-height:0;padding:0;border:0;opacity:0;cursor:pointer;font-size:0;z-index:1}
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-height:110px;border:2px dashed #5b5f6e;border-radius:4px;background:rgba(255,255,255,.03);text-align:center;padding:14px;cursor:pointer;color:var(--text);font-weight:600}
+.drop.over{border-color:var(--yellow)}
+.drop small{font-weight:400;color:var(--mute)}
+.pickrow{display:flex;gap:10px;margin-top:10px}
+.camera{flex:1;display:flex;align-items:center;justify-content:center;min-height:48px;border:1px solid var(--purple);border-radius:4px;color:var(--purple);font-weight:600;overflow:hidden}
+.thumbs{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
+.mount{position:relative;background:#0e0f12;padding:6px;border-radius:2px;border:1px solid var(--line)}
+.mount img{display:block;width:84px;height:84px;object-fit:cover;background:#222}
+.mount button{position:absolute;top:-10px;right:-10px;width:30px;height:30px;border-radius:50%;border:2px solid var(--card);background:var(--red-d);color:#fff;font-size:16px;line-height:1;padding:0}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.slot{display:flex;flex-direction:column;justify-content:flex-end;min-height:112px;border:2px dashed #5b5f6e;border-radius:4px;background:rgba(255,255,255,.03);padding:8px;cursor:pointer;overflow:hidden;font-size:14px;font-weight:600;color:var(--text)}
+.slot.main{grid-column:1/-1;min-height:150px}
+.slot small{font-weight:400;color:var(--mute);font-size:12px}
+.slot.has{border-style:solid;border-color:var(--purple);background:#0e0f12}
+.slot img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0e0f12}
+.slot .cap{position:relative;z-index:2;pointer-events:none}
+.slot.has .cap{background:rgba(14,15,18,.88);margin:0 -8px -8px;padding:6px 8px}
+.slot .x{position:absolute;top:6px;right:6px;z-index:3;width:34px;height:34px;border-radius:50%;border:2px solid #fff;background:var(--red-d);color:#fff;font-size:18px;line-height:1;padding:0}
+.filebtn{display:inline-flex;align-items:center;overflow:hidden}
+details.how{margin:10px 0 0;font-size:14px}
+details.how summary{cursor:pointer;font-weight:600;color:var(--purple);min-height:36px;display:flex;align-items:center}
+details.how ul,details.how ol{margin:6px 0 0;padding-left:20px;color:var(--text)}
+details.how li{margin:4px 0}
+
+/* status + errors */
+.status{margin:10px 0 0;font-size:14px;color:var(--mute);min-height:20px}
+.err{border-left:4px solid var(--red);background:var(--card);padding:10px 12px;margin:12px 0;font-size:15px}
+.err b{color:var(--red)}
+.notice{border-left:4px solid var(--yellow);background:var(--card);padding:10px 12px;margin:12px 0;font-size:14px}
+.cancel{margin-top:8px}
+
+/* value stamp: the one loud element */
+.vstamp{--hole:var(--card);--bg2:var(--purple-d);position:relative;flex:none;width:118px;min-height:100px;padding:16px 12px 14px;text-align:center;color:#fff;display:flex;flex-direction:column;justify-content:center;gap:5px;
+  background:
+   radial-gradient(circle at 50% 0,var(--hole) 3.6px,transparent 4px) 0 0/10px 9px repeat-x,
+   radial-gradient(circle at 50% 100%,var(--hole) 3.6px,transparent 4px) 0 100%/10px 9px repeat-x,
+   radial-gradient(circle at 0 50%,var(--hole) 3.6px,transparent 4px) 0 0/9px 10px repeat-y,
+   radial-gradient(circle at 100% 50%,var(--hole) 3.6px,transparent 4px) 100% 0/9px 10px repeat-y,
+   var(--bg2)}
+.vstamp::after{content:"";position:absolute;inset:9px;border:1px solid rgba(255,255,255,.4);pointer-events:none}
+.vstamp.flag{--bg2:var(--red-d)}
+.vstamp.gold{--bg2:var(--yellow);color:#1a1b1f}
+.vstamp.gold::after{border-color:rgba(26,27,31,.4)}
+.vstamp b{font:700 28px/1 var(--cond);letter-spacing:.2px;white-space:nowrap}
+.vstamp[data-len="m"] b{font-size:21px}
+.vstamp[data-len="l"] b{font-size:17px}
+.vstamp[data-len="x"] b{font-size:13px}
+.vstamp small{font-size:11px;line-height:1.2;opacity:.92}
+
+/* result items */
+.item{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--purple);border-radius:4px;padding:14px;margin:12px 0}
+.item.flag{border-left-color:var(--red)}
+.item.gold{border-left-color:var(--yellow)}
+.item.out{opacity:.72;border-left-color:#5b5f6e}
+.ihead{display:flex;gap:14px;align-items:flex-start}
+.imeta{min-width:0;flex:1}
+.sub{font-size:14px;color:var(--mute);margin:3px 0 0}
+.scott{font-size:14px;margin:6px 0 0;font-variant-numeric:tabular-nums}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}
+.tag{display:inline-block;padding:2px 9px;border-radius:12px;border:1px solid var(--line);font-size:12px;font-weight:600;background:var(--card2);color:var(--mute)}
+.tag.scarce,.tag.listed{border-color:var(--yellow);color:var(--yellow)}
+.tag.rare,.tag.flagtag{border-color:var(--red-d);background:var(--red-d);color:#fff}
+.tag.uncommon,.tag.grade{border-color:var(--purple);color:var(--purple)}
+.note{font-size:15px;margin:10px 0 0}
+.why{font-size:15px;margin:10px 0 0;padding:8px 10px;background:#31232a;border:1px solid #6b2f3d;border-radius:3px}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+.actions{display:flex;gap:8px;margin:12px 0 0;flex-wrap:wrap}
+.overall{border-left:5px solid var(--yellow)}
+.overall p{margin:6px 0}
+.sum{display:flex;flex-wrap:wrap;gap:6px 18px;margin:8px 0 0;font-size:14px;color:var(--mute)}
+.sum b{color:var(--yellow);font-size:17px}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin:0}
+
+/* identify sheet */
+.sheet h3.big{font:700 24px/1.2 var(--serif);color:var(--text);margin:6px 0 0}
+.chips2{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+.chip2{border:1px solid var(--line);background:var(--card2);border-radius:10px;padding:8px 12px;min-width:96px}
+.chip2 b{display:block;font-size:16px;color:var(--text)}
+.chip2 small{color:var(--mute);font-size:12px}
+.chip2.rare{border-color:var(--red)}
+.chip2.scarce{border-color:var(--yellow)}
+.chip2.uncommon,.chip2.grade{border-color:var(--purple)}
+.hero{display:flex;gap:14px;align-items:flex-start;margin-top:12px}
+dl.kv{margin:8px 0 0}
+dl.kv div{padding:9px 0;border-bottom:1px solid var(--line)}
+dl.kv dt{font-size:13px;font-weight:700;color:var(--mute)}
+dl.kv dd{margin:2px 0 0}
+dl.kv .n{display:block;font-size:13px;color:var(--mute);margin-top:2px}
+.dots{display:inline-flex;gap:3px;vertical-align:middle;margin-left:6px}
+.dots i{width:8px;height:8px;border-radius:50%;background:var(--line)}
+.dots i.on{background:var(--purple)}
+.pct{font-size:13px;color:var(--mute);margin-left:6px}
+.scale{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;margin:30px 0 6px;position:relative}
+.scale i{height:10px;border-radius:5px;background:#3b3e49}
+.scale i.at{background:var(--yellow)}
+.scale i.at::before{content:"";position:absolute;margin-top:-14px;margin-left:calc(50% - 6px);border:6px solid transparent;border-top-color:var(--yellow)}
+.scale i:nth-child(n+8){background:#4a3a44}
+.scale i.at:nth-child(n+8){background:var(--red)}
+.ends{display:flex;justify-content:space-between;font-size:12px;color:var(--mute)}
+table.t{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+table.t th{text-align:left;font-size:13px;color:var(--mute);padding:6px 6px 6px 0;border-bottom:1px solid var(--line)}
+table.t td{padding:8px 6px 8px 0;border-bottom:1px solid var(--line);vertical-align:top}
+.var{padding:10px 0;border-bottom:1px solid var(--line)}
+.var b{font-family:var(--serif)}
+.verdict{display:inline-block;margin-left:6px;padding:1px 8px;border-radius:12px;font-size:12px;font-weight:700;background:#3a3d47;color:var(--mute)}
+.verdict.consistent,.verdict.possible{background:#4a3a14;color:var(--yellow)}
+.verdict.inconsistent,.verdict.ruled{background:#173a2d;color:var(--green)}
+ul.todo{list-style:none;padding:0;margin:6px 0 0}
+ul.todo li{padding:8px 0 8px 28px;position:relative;border-bottom:1px solid var(--line)}
+ul.todo li::before{content:"";position:absolute;left:2px;top:12px;width:14px;height:14px;border:2px solid var(--purple);border-radius:2px}
+ul.flags{margin:6px 0 0;padding-left:20px}
+ul.flags li{margin:4px 0;color:#ff9aa8}
+.raw{font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere;background:#1d1e23;border:1px solid var(--line);padding:8px;max-height:260px;overflow:auto}
+
+/* rare check */
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg button{min-height:44px;padding:0 14px;border:1px solid var(--line);border-radius:22px;background:var(--card2);color:var(--text);font-weight:600}
+.seg button[aria-pressed=true]{background:var(--purple-d);border-color:var(--purple-d);color:#fff}
+.truth{border-left:5px solid var(--red);background:var(--card);padding:12px 14px;margin:12px 0}
+.truth p{margin:6px 0}
+.rarecard .sub b{color:var(--text)}
+.rarecard ul.todo li{font-size:15px}
+.sec{font:700 15px/1.2 var(--serif);margin:16px 0 4px;color:var(--yellow)}
+
+/* ledger */
+.totals{display:flex;flex-wrap:wrap;gap:6px 22px;align-items:baseline}
+.totals b{font:700 26px/1 var(--cond);color:var(--yellow)}
+.chips{display:flex;gap:8px;margin:12px 0 0;flex-wrap:wrap}
+.chip{min-height:40px;padding:0 14px;border:1px solid var(--line);border-radius:20px;background:var(--card2);font-weight:600;color:var(--text)}
+.chip[aria-pressed=true]{background:var(--purple-d);color:#fff;border-color:var(--purple-d)}
+.entry{display:flex;gap:12px;align-items:flex-start}
+.entry .mount img{width:64px;height:64px}
+.entry .imeta{flex:1}
+.erow{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
+.erow select{width:auto;min-height:42px}
+.erow input{flex:1;min-width:140px;min-height:42px}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 0}
+.empty{text-align:center;color:var(--mute);padding:26px 10px}
+
+/* search */
+.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.sgrid a{justify-content:center;min-height:48px;border-radius:6px;text-align:center}
+.pre{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.pre button{min-height:38px;padding:0 12px;border:1px solid var(--line);border-radius:19px;background:var(--card2);color:var(--text);font-size:14px}
+
+/* bottom bar */
+nav.bar{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);display:flex}
+nav.bar button{flex:1;min-width:0;min-height:64px;border:0;background:transparent;color:var(--mute);font-weight:600;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-top:4px solid transparent}
+nav.bar button[aria-current=true]{color:var(--yellow);border-top-color:var(--red)}
+nav.bar svg{width:23px;height:23px}
+
+dialog{width:min(520px,calc(100% - 24px));border:1px solid var(--line);border-radius:6px;padding:16px;color:var(--text);background:var(--card)}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+.dactions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.toast{position:fixed;left:50%;bottom:calc(86px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--purple-d);color:#fff;padding:10px 16px;border-radius:4px;font-size:15px;z-index:30;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.toast{animation:pop .18s ease-out}@keyframes pop{from{opacity:0;transform:translate(-50%,6px)}}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="stripe"></div>
+  <div class="brandrow">
+    <div>
+      <h1>Loupe</h1>
+      <p>Scan, identify and rare-check stamps from a photo</p>
+    </div>
+    <button class="icon" id="btnSettings" aria-label="Settings">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <!-- SCAN -->
+  <section class="tab on" id="tab-scan">
+    <h2>Quick scan</h2>
+    <p class="lede">Photograph an album page, a spread of loose stamps, or a cover. You get a read on each item and a flag on anything worth a closer look.</p>
+
+    <label class="drop" for="scanFiles" id="scanDrop">
+      Add photos
+      <small id="scanCap">Around 6 to 12 stamps per photo reads well. Past that, the small ones turn into guesses.</small>
+      <input class="pick" type="file" id="scanFiles" accept="image/*" multiple aria-label="Add photos from your library">
+    </label>
+    <div class="pickrow">
+      <label class="camera" for="scanCam">Take a photo<input class="pick" type="file" id="scanCam" accept="image/*" capture="environment" aria-label="Take a photo"></label>
+    </div>
+    <div class="pickhelp-slot"></div>
+    <div class="thumbs" id="scanThumbs"></div>
+
+    <label class="field" for="scanHint">What you already know (optional)</label>
+    <input type="text" id="scanHint" placeholder="US, 1930s to 1950s, album page 12">
+
+    <button class="primary" id="scanGo">Scan photos</button>
+    <button class="ghost cancel" id="scanCancel" hidden>Stop</button>
+    <p class="status" id="scanStatus" aria-live="polite"></p>
+    <p class="help">Runs on your Claude usage, and the first scan asks your permission. Prices are Claude's estimates, not looked-up listings.</p>
+    <div id="scanOut"></div>
+  </section>
+
+  <!-- IDENTIFY -->
+  <section class="tab" id="tab-id">
+    <h2>Identify one stamp</h2>
+    <p class="lede">One stamp or cover, shot well, ideally with your perforation gauge and a known color in the same frame.</p>
+
+    <div class="slots" id="idSlots"></div>
+    <div class="pickhelp-slot"></div>
+
+    <details class="how">
+      <summary>How to shoot it</summary>
+      <ul>
+        <li>Daylight beside a window, no flash, no shadow across the stamp.</li>
+        <li>Phone parallel to the table. Tap to focus on the stamp.</li>
+        <li>Fill the frame. Claude sees each photo at roughly 1.2 megapixels, so a stamp that fills a quarter of the frame is only a few hundred pixels wide. Crop in before you send.</li>
+        <li>Gauge touching the stamp's edge, flat in the same plane. Color reference right next to it.</li>
+        <li>Backlit: hold the stamp against a bright, even screen.</li>
+      </ul>
+    </details>
+
+    <label class="field" for="gaugeType">Perforation gauge in the photo</label>
+    <select id="gaugeType">
+      <option value="a printed gauge card with rows of dots (stamp teeth line up with the dots)">Printed dot-row card</option>
+      <option value="a clear plastic overlay gauge with printed lines or dots">Clear overlay gauge</option>
+      <option value="a ruler with millimeter marks (count teeth over 20 mm)">Ruler with mm marks</option>
+      <option value="no gauge in the photo">No gauge in the photo</option>
+    </select>
+
+    <label class="field" for="ownPerf">Your own gauge reading (optional)</label>
+    <input type="text" id="ownPerf" placeholder="e.g. 11 horizontal, 10.5 vertical">
+    <p class="help">If you measured with the real gauge, that overrides what the photo suggests.</p>
+
+    <label class="field" for="colorRef">Known color in the photo</label>
+    <input type="text" id="colorRef" placeholder="e.g. white printer paper, gray card, Pantone chip 186 C">
+
+    <label class="field" for="deepGuess">What you think it is (optional)</label>
+    <input type="text" id="deepGuess" placeholder="e.g. US 3c 1932 Washington, Scott 720?">
+
+    <button class="primary" id="deepGo">Identify</button>
+    <button class="ghost cancel" id="deepCancel" hidden>Stop</button>
+    <p class="status" id="deepStatus" aria-live="polite"></p>
+    <p class="help">The sharpest reading takes a minute or two. Value is an estimate; the sold-listing buttons are the check.</p>
+    <div id="deepOut"></div>
+  </section>
+
+  <!-- RARE CHECK -->
+  <section class="tab" id="tab-rare">
+    <h2>Rare check: 1¢ and 2¢</h2>
+    <p class="lede">Franklin 1¢ and Washington 2¢ stamps are mostly worth cents. A short list is worth hundreds to many thousands. Answer what you can see; the list narrows to what is still possible and tells you the test for each.</p>
+
+    <div class="truth">
+      <p><b>What this can and can't do.</b> It can rule varieties out and tell you exactly what to measure. It cannot prove a stamp genuine, and neither can a photo. A stamp that survives every test goes to an expert for a certificate (Philatelic Foundation, PSE or APS) before you sell it as anything rare.</p>
+    </div>
+
+    <div class="qlabel">Which stamp is it?</div>
+    <div class="seg" data-q="face">
+      <button type="button" data-v="franklin">1¢ Franklin (blue or green)</button>
+      <button type="button" data-v="washington">2¢ Washington (red)</button>
+      <button type="button" data-v="jackson">2¢ Jackson (black)</button>
+    </div>
+    <div class="qlabel">Edges</div>
+    <div class="seg" data-q="edges">
+      <button type="button" data-v="imperf">No perforations</button>
+      <button type="button" data-v="perf">Perforated</button>
+    </div>
+    <div class="qlabel">Faint grid of tiny dots or ridges pressed into the paper (tilt it in the light)</div>
+    <div class="seg" data-q="grill">
+      <button type="button" data-v="yes">Yes, a grill</button>
+      <button type="button" data-v="no">No</button>
+    </div>
+    <div class="qlabel">Perforation gauge</div>
+    <div class="seg" data-q="perf">
+      <button type="button" data-v="15">About 15</button>
+      <button type="button" data-v="12">12</button>
+      <button type="button" data-v="11">11</button>
+      <button type="button" data-v="10">10</button>
+      <button type="button" data-v="8.5">8.5 (coil)</button>
+    </div>
+    <div class="qlabel">Watermark (held up to a bright light or on a dark tray)</div>
+    <div class="seg" data-q="wm">
+      <button type="button" data-v="none">None seen</button>
+      <button type="button" data-v="usps">Letters (U S P S)</button>
+    </div>
+    <p class="help">Tap an answer again to clear it. Anything you leave blank is treated as unknown.</p>
+    <div id="rareOut"></div>
+
+    <h2>Screen my photos</h2>
+    <p class="lede">Optional. Claude reads your photos against the same list and says which varieties each photo rules out and what to photograph next. It will not say a stamp is genuine.</p>
+    <div class="slots" id="rareSlots"></div>
+    <div class="pickhelp-slot"></div>
+    <button class="primary" id="rareGo">Screen against the list</button>
+    <button class="ghost cancel" id="rareCancel" hidden>Stop</button>
+    <p class="status" id="rareStatus" aria-live="polite"></p>
+    <div id="rareAI"></div>
+  </section>
+
+  <!-- SEARCH -->
+  <section class="tab" id="tab-find">
+    <h2>Search</h2>
+    <p class="lede">One search, opened on the sites that matter. eBay sold listings show what stamps actually sold for.</p>
+    <label class="field" for="q">What are you looking for?</label>
+    <input type="text" id="q" placeholder="US 1c Franklin Scott 86 E grill" autocomplete="off">
+    <div class="pre" id="presets"></div>
+    <div class="sgrid" id="sgrid"></div>
+    <p class="help">These open in your browser. A page like this can't read results from other sites, so prices don't come back into Loupe. Pasted-in numbers go in your ledger notes.</p>
+
+    <h2>Better searches</h2>
+    <p class="lede">Describe the stamp the way you would to a friend. Claude writes the search strings a collector would use.</p>
+    <label class="field" for="desc">Describe it</label>
+    <input type="text" id="desc" placeholder="blue Franklin, perforated, faint grid, used">
+    <button class="primary" id="descGo">Write searches</button>
+    <p class="status" id="descStatus" aria-live="polite"></p>
+    <div id="descOut"></div>
+    <div id="recentWrap"></div>
+  </section>
+
+  <!-- LEDGER -->
+  <section class="tab" id="tab-ledger">
+    <h2>Ledger</h2>
+    <div class="card" id="ledgerTotals"></div>
+    <div class="chips" id="ledgerChips"></div>
+    <div id="ledgerNote"></div>
+    <div id="ledgerList"></div>
+    <div class="tools">
+      <button class="ghost" id="exCopy">Copy list</button>
+      <button class="ghost" id="exCsv" hidden>Save CSV</button>
+      <button class="ghost" id="exJson" hidden>Back up</button>
+      <label class="ghost btn filebtn" for="imJson">Restore backup<input class="pick" type="file" id="imJson" accept="application/json,.json" aria-label="Restore backup"></label>
+    </div>
+    <p class="help" id="ledgerWhere"></p>
+  </section>
+</main>
+
+<nav class="bar" aria-label="Sections">
+  <button data-tab="scan" aria-current="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><rect x="8" y="8" width="8" height="8" rx="1"/></svg>
+    Scan
+  </button>
+  <button data-tab="id">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m20 20-4.9-4.9"/></svg>
+    Identify
+  </button>
+  <button data-tab="rare">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.5 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z"/></svg>
+    Rare
+  </button>
+  <button data-tab="find">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h6"/><circle cx="18" cy="16" r="3"/><path d="m20.2 18.2 1.8 1.8"/></svg>
+    Search
+  </button>
+  <button data-tab="ledger">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h12M8 12h12M8 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg>
+    Ledger
+  </button>
+</nav>
+
+<dialog id="settings">
+  <h2 style="margin-top:0">Settings</h2>
+  <label class="field" for="scanTier">Reading strength for quick scans</label>
+  <select id="scanTier">
+    <option value="default">Balanced</option>
+    <option value="complex">Sharpest (slower, uses more of your Claude limit)</option>
+    <option value="quick">Fast (rougher on small stamps)</option>
+  </select>
+  <label class="field" for="deepTier">Reading strength for Identify and Rare check</label>
+  <select id="deepTier">
+    <option value="complex">Sharpest</option>
+    <option value="default">Balanced</option>
+  </select>
+  <p class="help">These choices stay in this browser.</p>
+  <div class="dactions">
+    <button class="ghost" id="setSave" style="background:var(--purple-d);color:#fff;border-color:var(--purple-d)">Save settings</button>
+    <button class="ghost" id="setClose">Close</button>
+    <button class="ghost danger" id="setWipe">Erase ledger</button>
+  </div>
+</dialog>
+
+<dialog id="confirmDlg">
+  <p id="confirmMsg" style="margin-top:0"></p>
+  <div class="dactions">
+    <button class="ghost" id="confirmNo">Cancel</button>
+    <button class="ghost danger" id="confirmYes">Delete</button>
+  </div>
+</dialog>
+
+<dialog id="copyDlg">
+  <p style="margin-top:0">Select all, copy, then paste into a spreadsheet.</p>
+  <textarea id="copyText" readonly aria-label="Ledger as text"></textarea>
+  <div class="dactions"><button class="ghost" id="copyClose">Close</button></div>
+</dialog>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- helpers ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const txt = x => x == null ? '' : (typeof x === 'string' ? x : (typeof x === 'number' ? String(x) : JSON.stringify(x)));
+const arr = x => Array.isArray(x) ? x : [];
+const num = x => { const n = typeof x === 'string' ? parseFloat(x.replace(/[^0-9.\-]/g, '')) : x; return Number.isFinite(n) ? n : null; };
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('loupe.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('loupe.' + k, JSON.stringify(v)); return true; } catch (e) { return false; } },
+  del(k) { try { localStorage.removeItem('loupe.' + k); } catch (e) {} }
+};
+
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg; t.setAttribute('role', 'status');
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2600);
+}
+function money(n) {
+  if (n == null) return '?';
+  if (n >= 100) return '$' + Math.round(n).toLocaleString('en-US');
+  if (n >= 10) return '$' + Math.round(n);
+  if (n >= 1) return '$' + (Math.round(n * 100) / 100).toString().replace(/\.0+$/, '');
+  return '$' + n.toFixed(2);
+}
+function range(lo, hi) {
+  lo = num(lo); hi = num(hi);
+  if (lo == null && hi == null) return '?';
+  if (lo == null) lo = hi; if (hi == null) hi = lo;
+  if (hi < 1 && lo < 1 && hi <= 0.5) return 'Under $1';
+  if (lo === hi) return money(lo);
+  return money(lo) + '–' + money(hi);
+}
+const lenClass = s => s.length > 10 ? 'x' : s.length > 7 ? 'l' : s.length > 5 ? 'm' : 's';
+
+function askConfirm(msg, yes) {
+  return new Promise(res => {
+    const d = $('#confirmDlg');
+    $('#confirmMsg').textContent = msg; $('#confirmYes').textContent = yes || 'Delete';
+    let out = false;
+    const done = v => { out = v; if (d.open) d.close(); };
+    $('#confirmYes').onclick = () => done(true);
+    $('#confirmNo').onclick = () => done(false);
+    d.onclose = () => res(out);
+    d.showModal();
+  });
+}
+
+/* ---------- Claude, via the page's own capabilities ---------- */
+const hasClaude = () => typeof window.claude !== 'undefined' && window.claude && typeof window.claude.use === 'function';
+let sample = null, imgLimits = null, tiers = ['default', 'complex', 'quick'];
+const capsReady = (async () => {
+  if (!hasClaude()) return;
+  try { sample = await window.claude.use('sample'); } catch (e) { sample = null; }
+  if (sample) {
+    try {
+      const l = await sample.limits();
+      imgLimits = l && l.images ? l.images : null;
+      if (l && Array.isArray(l.modelTiers)) tiers = l.modelTiers;
+    } catch (e) { imgLimits = null; }
+  }
+  const cap = imgLimits && imgLimits.maxCount ? imgLimits.maxCount : 4;
+  $('#scanCap').textContent = `Up to ${cap} photos at a time. Around 6 to 12 stamps per photo reads well; past that, the small ones turn into guesses.`;
+})();
+const maxPhotos = () => imgLimits && imgLimits.maxCount ? imgLimits.maxCount : 4;
+
+function sampleMsg(e) {
+  switch (e && e.code) {
+    case 'not_granted': return 'Claude access for this page was declined. Reload the page and allow it when asked.';
+    case 'sampling_disabled': return 'Claude is not available for this account right now.';
+    case 'rate_limited': return 'Too many requests, or your Claude usage limit is reached. Wait a few minutes, then try again.';
+    case 'session_expired': return 'Your Claude sign-in expired. Reload the page and sign in again.';
+    case 'image_rejected': return 'A photo was rejected (wrong type or too large). Remove it and add it again, or pick another.';
+    case 'images_unavailable': return 'This view cannot send photos to Claude. Open the page in the Claude app or on claude.ai.';
+    case 'refused': return 'Claude declined to read this set of photos. Try different ones.';
+    case 'empty_completion': return 'Nothing came back. Try again with fewer photos.';
+    case 'invalid_json': return 'The answer was cut short or came back garbled. Try again, or use fewer photos.';
+    case 'prompt_too_large': return 'Too much text to send. Shorten the notes you typed.';
+    default: return 'The request failed. Try again in a minute.';
+  }
+}
+function errBox(msg, raw) {
+  return `<div class="err"><b>Didn't work.</b> ${esc(msg)}</div>` +
+    (raw ? `<details class="how"><summary>Show what came back</summary><div class="raw">${esc(raw)}</div></details>` : '');
+}
+async function needSample(outEl, needImages) {
+  await capsReady;
+  if (!sample) {
+    outEl.innerHTML = `<div class="err"><b>Open this in Claude.</b> This only works when the page is opened from your Claude app or claude.ai, because that is what lets it use your Claude account.</div>`;
+    return null;
+  }
+  if (needImages && !imgLimits) {
+    outEl.innerHTML = `<div class="err"><b>Photos can't be sent from this view.</b> Open the page in the Claude app or on claude.ai.</div>`;
+    return null;
+  }
+  return sample;
+}
+function withTimer(statusEl, label) {
+  const t0 = Date.now();
+  const st = { extra: '' };
+  const tick = () => { statusEl.textContent = label + ' ' + Math.round((Date.now() - t0) / 1000) + 's' + st.extra; };
+  tick();
+  const id = setInterval(tick, 1000);
+  st.stop = () => clearInterval(id);
+  return st;
+}
+
+/* ---------- settings ---------- */
+const cfg = () => ({ scanTier: 'default', deepTier: 'complex', ...LS.get('cfg', {}) });
+const tierOf = t => tiers.includes(t) ? t : 'default';
+const dlg = $('#settings');
+$('#btnSettings').onclick = () => {
+  const c = cfg();
+  $('#scanTier').value = c.scanTier; $('#deepTier').value = c.deepTier;
+  dlg.showModal();
+};
+$('#setClose').onclick = () => dlg.close();
+$('#setSave').onclick = () => {
+  LS.set('cfg', { scanTier: $('#scanTier').value, deepTier: $('#deepTier').value });
+  dlg.close(); toast('Settings saved');
+};
+$('#setWipe').onclick = async () => {
+  dlg.close();
+  if (!ledger.length) return toast('The ledger is already empty.');
+  if (!await askConfirm(`Erase all ${ledger.length} saved entries? This cannot be undone.`, 'Erase')) return;
+  await wipeAll(); toast('Ledger erased');
+};
+
+/* ---------- tabs ---------- */
+let curTab = 'scan';
+function showTab(name) {
+  curTab = name;
+  $$('.tab').forEach(t => t.classList.toggle('on', t.id === 'tab-' + name));
+  $$('nav.bar button').forEach(b => b.setAttribute('aria-current', String(b.dataset.tab === name)));
+  if (name === 'ledger') renderLedger();
+  window.scrollTo(0, 0);
+}
+$$('nav.bar button').forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+/* ---------- images ---------- */
+function loadImg(url) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+}
+async function prepImage(file, maxEdge, quality) {
+  let src, w, h, objUrl;
+  try {
+    src = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    w = src.width; h = src.height;
+  } catch (e) {
+    objUrl = URL.createObjectURL(file);
+    src = await loadImg(objUrl); w = src.naturalWidth; h = src.naturalHeight;
+  }
+  const k = Math.min(1, maxEdge / Math.max(w, h));
+  const cw = Math.round(w * k), ch = Math.round(h * k);
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  c.getContext('2d').drawImage(src, 0, 0, cw, ch);
+  const blob = await new Promise((res, rej) => c.toBlob(b => b ? res(b) : rej(new Error('encode')), 'image/jpeg', quality));
+  const tk = 160 / Math.max(cw, ch);
+  const t = document.createElement('canvas'); t.width = Math.round(cw * tk); t.height = Math.round(ch * tk);
+  t.getContext('2d').drawImage(c, 0, 0, t.width, t.height);
+  if (objUrl) URL.revokeObjectURL(objUrl);
+  return { blob, preview: URL.createObjectURL(blob), thumb: t.toDataURL('image/jpeg', 0.7) };
+}
+const freePhoto = p => { if (p && p.preview) URL.revokeObjectURL(p.preview); };
+
+/* ---------- picker plumbing and fallbacks ---------- */
+const PICKHELP = `<details class="how pickhelp"><summary>Photo picker not opening?</summary><ol>
+  <li>Some Claude apps block the phone's photo picker inside a page. Open this same page in Chrome (claude.ai in the browser) and try there.</li>
+  <li>Copy a photo, then paste it here: tap the page and use your keyboard's paste.</li>
+  <li>Or send the photos to me in chat and I will scan them.</li></ol></details>`;
+$$('.pickhelp-slot').forEach(el => { el.innerHTML = PICKHELP; });
+let pickTimer = null;
+function watchPicker(input) {
+  input.addEventListener('click', () => {
+    clearTimeout(pickTimer);
+    pickTimer = setTimeout(() => $$('.pickhelp').forEach(d => { d.open = true; }), 7000);
+  });
+  const clear = () => clearTimeout(pickTimer);
+  input.addEventListener('change', clear); input.addEventListener('cancel', clear);
+}
+
+function drawSlot(label, store, key) {
+  const old = $('img', label); if (old) old.remove();
+  const oldx = $('.x', label); if (oldx) oldx.remove();
+  const p = store[key];
+  label.classList.toggle('has', !!p);
+  if (p) {
+    const im = document.createElement('img'); im.src = p.preview; im.alt = key + ' photo'; label.prepend(im);
+    const x = document.createElement('button'); x.type = 'button'; x.className = 'x'; x.textContent = '×'; x.setAttribute('aria-label', 'Remove photo');
+    x.onclick = ev => { ev.preventDefault(); ev.stopPropagation(); freePhoto(store[key]); delete store[key]; drawSlot(label, store, key); };
+    label.appendChild(x);
+  }
+}
+function slotGrid(el, defs, store) {
+  el.innerHTML = defs.map(d => `<label class="slot ${d.main ? 'main' : ''}" data-slot="${d.key}"><input class="pick" type="file" accept="image/*" aria-label="${esc(d.label)}"><span class="cap">${esc(d.label)}<br><small>${esc(d.hint)}</small></span></label>`).join('');
+  $$('.slot', el).forEach(label => {
+    const key = label.dataset.slot, input = $('input', label);
+    watchPicker(input);
+    input.onchange = async e => {
+      const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+      try { freePhoto(store[key]); store[key] = await prepImage(f, 2000, 0.9); drawSlot(label, store, key); } catch (err) { toast('Could not read that photo.'); }
+    };
+  });
+}
+
+/* ---------- shared renderers ---------- */
+function vstamp(lo, hi, flagged, cls = '') {
+  const r = range(lo, hi);
+  return `<div class="vstamp ${flagged ? 'flag' : ''} ${cls}" data-len="${lenClass(r)}"><b>${esc(r)}</b><small>est., unchecked</small></div>`;
+}
+function dots(p) {
+  p = Math.max(0, Math.min(100, num(p) ?? 0));
+  const on = Math.round(p / 10);
+  return `<span class="dots" aria-label="${p} percent">${Array.from({ length: 10 }, (_, i) => `<i class="${i < on ? 'on' : ''}"></i>`).join('')}</span><span class="pct">${p}%</span>`;
+}
+const SITES = [
+  ['Sold on eBay', q => `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=260&LH_Sold=1&LH_Complete=1&_sop=13`, true],
+  ['For sale on eBay', q => `https://www.ebay.com/sch/i.html?_nkw=${q}&_sacat=260`],
+  ['StampWorld', q => `https://www.google.com/search?q=${q}%20site%3Astampworld.com`],
+  ['Colnect', q => `https://www.google.com/search?q=${q}%20site%3Acolnect.com`],
+  ['Auction results', q => `https://www.google.com/search?q=${q}%20site%3Astampauctionnetwork.com`],
+  ['Compare pictures', q => `https://www.google.com/search?tbm=isch&q=${q}%20stamp`]
+];
+function links(q, n) {
+  q = (q || '').trim();
+  if (!q) return '';
+  const e = encodeURIComponent(q);
+  const L = SITES.slice(0, n || 4);
+  return `<div class="links">${L.map(([t, f, key]) => `<a class="lnk ${key ? 'key' : ''}" href="${f(e)}" target="_blank" rel="noopener">${t}</a>`).join('')}</div>`;
+}
+
+/* ---------- prompts ---------- */
+const TRAPS = `Traps that matter in this particular collection (use them, and say when a photo cannot settle one):
+- US 1870s Bank Note 10c Jefferson: Scott 209 (1882) shows four strong vertical shading lines; the secret mark (a small semicircle in the ball at the end of the right scroll) separates 161 (hard paper) and 188 (soft paper); a grill points to 139. Without these checks the value swings from a few dollars to several times that.
+- US 6c Lincoln of the 1870s: carmine, no grill (148) is the valuable one; pale pink printings (159, 186, 208) are cheaper.
+- US 1930 postage dues: flat plate perf 11 versus rotary 11 x 10.5 matters; the 30c (J75) and 50c (J76) flat plate stamps are the valuable ones, especially never hinged. Early 1890s dues: vermilion versus claret shades are different issues.
+- US stock transfer, documentary and similar revenue stamps are worth little except at high denominations.
+- Latvia Western Army (Bermondt) eagle stamps are mostly reprints or forgeries. Provisional surcharges and occupation overprints from many countries are heavily forged, so a plain reading is never enough.
+- Large loose lots of common worldwide stamps (kiloware) are bulk: say so and price them as bulk.
+- Precancels, fancy cancels, covers with unusual markings and imperforates on stamps that should be perforated deserve a closer look.
+- US 1c Franklin and 2c Washington: almost all are worth cents. The valuable exceptions are 1851-57 imperforate Franklins of the early types, grilled 1867-68 issues (Z, D, E and F grills), the 1890 2c lake, and imperforate or booklet items of the 1908-22 series. Say "Rare check" in deep_look_reason when one of these is possible.`;
+
+const QUICK_PROMPT = `You are a veteran philatelist and stamp appraiser working through a collector's inherited accumulation: US and worldwide stamps, first day covers, albums. The owner is triaging thousands of items from photos and wants the truth fast, with no cheerleading.
+
+You cannot look anything up. Every value you give is your own estimate from catalog knowledge, and the owner will check the ones that matter against sold listings. Keep ranges honest, and wide when you are unsure.
+
+Rules:
+- Identify every distinct stamp, cover, first day cover, block, sheet or album visible, up to 16 items in total. Group near-identical stamps into one item, put how many in "count", and say so in the label. For a group, value_low and value_high cover the whole group, not one stamp.
+- Give Scott number candidates when you can, each with a confidence percent. If you cannot narrow it to an issue, say so. Never invent a number to look precise.
+- Give a realistic US dollar retail ballpark at typical grade (assume used unless it clearly is mint). Most accumulation material is worth cents, and you say so plainly. First day covers are mostly worth one to three dollars unless early, with a scarce cachet, or unusual.
+- Set deep_look true only when a close look could separate a cheap stamp from an expensive one: grills, watermark and perforation varieties, imperfs, coil and booklet varieties, errors, classics, high-value commemoratives, airmails, possessions, early foreign issues, covers with unusual markings. Say exactly what to look at in deep_look_reason.
+- search_query is 3 to 8 words a collector would type into eBay to find that exact item (country, year, denomination, subject, Scott number if confident).
+- "photo" is the 1-based number of the photo the item appears in. The photos are attached in order, photo 1 first.
+- Photo quality limits you. If something is too small or blurry to read, say so in condition_note instead of guessing.
+
+${TRAPS}`;
+
+const QUICK_SCHEMA = `{
+ "scene": "one sentence on what the photos show",
+ "lot_note": "two blunt sentences: what this is worth overall and where real value could hide",
+ "items": [{
+   "photo": 1, "label": "short name e.g. US 3c Washington 1932", "type": "stamp|cover|fdc|album|block|sheet|other",
+   "count": 1, "country": "", "year": "", "denomination": "",
+   "scott": [{"num": "", "confidence": 0}],
+   "condition_note": "", "commonness": "common|uncommon|scarce|rare|unknown",
+   "value_low": 0, "value_high": 0,
+   "deep_look": false, "deep_look_reason": "", "search_query": ""
+ }]
+}`;
+
+const DEEP_PROMPT = `You are a senior philatelist doing a close identification of a single stamp or cover from the owner's photos. Be exact, and be honest about what a phone photo can and cannot prove.
+
+You cannot look anything up. Values are your own estimate from catalog knowledge; say when the value hinges on something the photos cannot settle, and put the check (a sold-listings search, a catalog page) in verify_next.
+
+Reference materials: the owner may have placed a perforation gauge and a known color reference in the frame and will tell you what they are.
+- Perforation: if a gauge is visible, compare the stamp's tooth edges against it and report a reading for each axis as a number with a range (for example "11, probably 10.5 to 11.5"). Note compound perfs, line versus comb, and rouletting. If the owner gives their own physical reading, treat it as ground truth and use it to narrow the candidates. If the photo is not good enough to count teeth, say so.
+- Color: phone cameras shift color with light and white balance. Use the reference to judge how the lighting has shifted the image, then name the shade in standard philatelic terms (for example "carmine rose" or "deep ultramarine") with a confidence. Where a shade distinction decides the value, do not call it certain; say which shades are in play and what to check against a Scott color guide or a known copy in daylight.
+- Watermark, paper, gum and printing method usually cannot be judged from a front photo. Use the extra photos if given; otherwise say what is needed.
+
+Rules:
+- Identify down to the exact catalog variety you can defend. Rank candidates with confidence.
+- List the varieties that would change the value, how to tell them apart, and whether this stamp looks "consistent", "inconsistent" or "cannot tell" for each.
+- Name warnings: reprints, forgeries, faked cancels, regumming, repairs, thinning, trimmed perfs, and whether it is a revenue stamp rather than a postage stamp.
+- Value in US dollars, retail, by grade, for the candidate you rate most likely.
+- grade.score is 0 to 100 where 100 is superb; grade.label is a short collector grade such as "F-VF".
+- verify_next lists the concrete steps (extra photo, test, catalog page) that would settle the identification.
+
+${TRAPS}`;
+
+const DEEP_SCHEMA = `{
+ "identification": {"summary": "", "type_label": "stamp|cover|fdc|revenue|airmail|other", "country": "", "years": "", "denomination": "", "series": "",
+   "issue": "", "search_query": "",
+   "candidates": [{"scott": "", "description": "", "confidence": 0}],
+   "confidence": 0, "confidence_reason": ""},
+ "grade": {"label": "", "score": 0}, "rarity": "common|uncommon|scarce|rare|unknown",
+ "condition": {"centering": "", "perforations": "", "margins": "", "freshness": ""},
+ "measurements": {
+   "perforation": {"horizontal": "", "vertical": "", "type": "", "confidence": 0, "note": ""},
+   "shade": {"name": "", "confidence": 0, "note": ""},
+   "cancel": "", "watermark": "", "paper": "", "printing": "", "gum_or_back": ""},
+ "historical_context": "",
+ "variety_check": [{"variety": "", "how_to_tell": "", "this_stamp": "consistent|inconsistent|cannot tell", "value_impact": ""}],
+ "value": {"low": 0, "high": 0, "for_candidate": "",
+   "by_grade": [{"grade": "", "range": ""}], "note": ""},
+ "verify_next": [""], "red_flags": [""]
+}`;
+
+/* ---------- QUICK SCAN ---------- */
+const scan = { photos: [], result: null, abort: null };
+
+async function addScanFiles(files) {
+  for (const f of files) {
+    if (scan.photos.length >= maxPhotos()) { toast(`${maxPhotos()} photos at a time is the limit.`); break; }
+    try { scan.photos.push(await prepImage(f, 1600, 0.88)); } catch (err) { toast('Could not read that photo.'); }
+  }
+  renderScanThumbs();
+}
+['#scanFiles', '#scanCam'].forEach(sel => {
+  const inp = $(sel); watchPicker(inp);
+  inp.onchange = e => { const files = [...e.target.files]; e.target.value = ''; addScanFiles(files); };
+});
+const dropEl = $('#scanDrop');
+dropEl.addEventListener('dragover', e => { e.preventDefault(); dropEl.classList.add('over'); });
+dropEl.addEventListener('dragleave', () => dropEl.classList.remove('over'));
+dropEl.addEventListener('drop', e => {
+  e.preventDefault(); dropEl.classList.remove('over');
+  addScanFiles([...e.dataTransfer.files].filter(f => /^image\//.test(f.type)));
+});
+function renderScanThumbs() {
+  $('#scanThumbs').innerHTML = scan.photos.map((p, i) =>
+    `<div class="mount"><img src="${p.preview}" alt="Photo ${i + 1}"><button data-i="${i}" aria-label="Remove photo ${i + 1}">×</button></div>`).join('');
+  $$('#scanThumbs button').forEach(b => b.onclick = () => { freePhoto(scan.photos[+b.dataset.i]); scan.photos.splice(+b.dataset.i, 1); renderScanThumbs(); });
+}
+document.addEventListener('paste', e => {
+  const files = [...(e.clipboardData && e.clipboardData.files || [])].filter(f => /^image\//.test(f.type));
+  if (!files.length) return;
+  e.preventDefault();
+  if (curTab === 'scan') addScanFiles(files);
+  else if (curTab === 'id' || curTab === 'rare') {
+    const grid = curTab === 'id' ? $('#idSlots') : $('#rareSlots');
+    const store = curTab === 'id' ? deep.imgs : rare.imgs;
+    const empty = $$('.slot', grid).find(l => !store[l.dataset.slot]) || $('.slot', grid);
+    prepImage(files[0], 2000, 0.9).then(p => { store[empty.dataset.slot] = p; drawSlot(empty, store, empty.dataset.slot); toast('Photo pasted'); }).catch(() => toast('Could not read that photo.'));
+  } else toast('Switch to Scan, Identify or Rare first, then paste.');
+});
+
+$('#scanCancel').onclick = () => scan.abort && scan.abort.abort();
+$('#scanGo').onclick = async () => {
+  if (!scan.photos.length) return toast('Add at least one photo.');
+  const out = $('#scanOut'), st = $('#scanStatus'), go = $('#scanGo'), cn = $('#scanCancel');
+  out.innerHTML = ''; go.disabled = true; cn.hidden = false;
+  const s = await needSample(out, true);
+  if (!s) { go.disabled = false; cn.hidden = true; return; }
+  scan.abort = new AbortController();
+  const tm = withTimer(st, 'Reading');
+  const hint = $('#scanHint').value.trim();
+  const prompt = QUICK_PROMPT + '\n\n' +
+    `${scan.photos.length} photo${scan.photos.length > 1 ? 's are' : ' is'} attached, in order.\n` +
+    (hint ? `Owner notes: ${hint}\n` : '') +
+    `\nTriage everything visible. Reply with one JSON object and nothing else, in this shape:\n${QUICK_SCHEMA}`;
+  try {
+    const data = await s.json(prompt, {
+      images: scan.photos.map(p => p.blob), modelTier: tierOf(cfg().scanTier), signal: scan.abort.signal,
+      onText: ({ text }) => { const n = (text.match(/"label"/g) || []).length; tm.extra = n ? `, ${n} found so far` : ', writing up'; }
+    });
+    if (!data || !Array.isArray(data.items)) out.innerHTML = errBox('The reply was not in a readable format. Try again.', JSON.stringify(data || '').slice(0, 2000));
+    else { scan.result = data; renderScan(data); }
+  } catch (e) {
+    if (e && e.code === 'cancelled') out.innerHTML = '';
+    else out.innerHTML = errBox(sampleMsg(e), e && e.code === 'invalid_json' ? e.text : '');
+  } finally { tm.stop(); st.textContent = ''; go.disabled = false; cn.hidden = true; }
+};
+
+function renderScan(d) {
+  const items = arr(d.items);
+  let lo = 0, hi = 0, flagged = 0;
+  items.forEach(it => { const l = num(it.value_low), h = num(it.value_high); if (l != null) lo += l; if (h != null) hi += h; if (it.deep_look) flagged++; });
+  let html = `<div class="card overall"><h3>The honest read</h3>
+    ${d.scene ? `<p class="sub">${esc(d.scene)}</p>` : ''}
+    <p>${esc(d.lot_note || '')}</p>
+    <div class="sum"><span><b>${items.length}</b> items</span><span><b>${flagged}</b> worth a closer look</span><span>Rough total <b>${esc(range(lo, hi))}</b></span></div>
+    <p class="help">Every value here is an estimate from Claude's catalog knowledge. Nothing was looked up. Check the ones that matter with Sold on eBay.</p>
+    ${flagged ? `<div class="actions"><button class="ghost" id="saveFlagged">Save the ${flagged} flagged to ledger</button></div>` : ''}</div>`;
+  html += items.map((it, i) => {
+    const flag = !!it.deep_look;
+    const cm = ['common', 'uncommon', 'scarce', 'rare'].includes(it.commonness) ? it.commonness : '';
+    const scott = arr(it.scott).filter(s => s && s.num).map(s => `Scott ${esc(s.num)} <span class="pct">${esc(num(s.confidence) ?? '?')}%</span>`).join(', ');
+    const sub = [it.country, it.year, it.denomination, it.type, num(it.count) > 1 ? 'x' + it.count : ''].filter(Boolean).map(esc).join(', ');
+    return `<article class="item ${flag ? 'flag' : ''}">
+      <div class="ihead">
+        ${vstamp(it.value_low, it.value_high, flag)}
+        <div class="imeta">
+          <h3>${esc(it.label || 'Item ' + (i + 1))}</h3>
+          <p class="sub">${sub}</p>
+          ${scott ? `<p class="scott">${scott}</p>` : ''}
+          <div class="tags">${cm ? `<span class="tag ${cm}">${cm}</span>` : ''}${flag ? '<span class="tag flagtag">Worth a closer look</span>' : ''}</div>
+        </div>
+      </div>
+      ${flag && it.deep_look_reason ? `<p class="why">${esc(it.deep_look_reason)}</p>` : ''}
+      ${it.condition_note ? `<p class="note">${esc(it.condition_note)}</p>` : ''}
+      ${links(it.search_query)}
+      <div class="actions"><button class="ghost" data-save="${i}">Save to ledger</button></div>
+    </article>`;
+  }).join('');
+  const out = $('#scanOut'); out.innerHTML = html;
+  $$('[data-save]', out).forEach(b => b.onclick = async () => {
+    b.disabled = true;
+    const ok = await saveScanItem(+b.dataset.save, true);
+    b.textContent = ok ? 'Saved' : 'Could not save'; b.disabled = ok;
+  });
+  const sf = $('#saveFlagged');
+  if (sf) sf.onclick = async () => {
+    sf.disabled = true; let n = 0;
+    for (let i = 0; i < items.length; i++) if (items[i].deep_look && await saveScanItem(i, false)) n++;
+    sf.textContent = n + ' saved'; toast(n + ' saved to ledger');
+  };
+}
+async function saveScanItem(i, announce) {
+  const it = arr(scan.result && scan.result.items)[i]; if (!it) return false;
+  const ph = scan.photos[(num(it.photo) || 1) - 1] || scan.photos[0];
+  const sc = arr(it.scott).filter(s => s && s.num)[0];
+  return addEntry({ label: it.label, country: it.country, year: it.year, scott: sc ? sc.num : '', low: num(it.value_low), high: num(it.value_high),
+    flagged: !!it.deep_look, query: it.search_query, thumb: ph ? ph.thumb : '', note: it.deep_look ? it.deep_look_reason : it.condition_note, from: 'scan' }, announce);
+}
+
+/* ---------- IDENTIFY ---------- */
+const deep = { imgs: {}, result: null, abort: null };
+slotGrid($('#idSlots'), [
+  { key: 'main', main: true, label: 'Main photo (required)', hint: 'Front of the stamp, gauge and color reference in frame' },
+  { key: 'back', label: 'Back', hint: 'Gum, hinge, paper' },
+  { key: 'backlit', label: 'Backlit', hint: 'Watermark, thin spots' },
+  { key: 'close', label: 'Close-up', hint: 'Design detail or cancel' }
+], deep.imgs);
+
+$('#deepCancel').onclick = () => deep.abort && deep.abort.abort();
+$('#deepGo').onclick = async () => {
+  if (!deep.imgs.main) return toast('Add the main photo first.');
+  const out = $('#deepOut'), st = $('#deepStatus'), go = $('#deepGo'), cn = $('#deepCancel');
+  out.innerHTML = ''; go.disabled = true; cn.hidden = false;
+  const s = await needSample(out, true);
+  if (!s) { go.disabled = false; cn.hidden = true; return; }
+  deep.abort = new AbortController();
+  const tm = withTimer(st, 'Examining');
+  const labels = { main: 'front of the stamp, with the gauge and color reference in frame', back: 'back of the stamp', backlit: 'backlit photo for watermark and thin spots', close: 'close-up of design detail or cancel' };
+  const order = ['main', 'back', 'backlit', 'close'].filter(k => deep.imgs[k]);
+  const own = $('#ownPerf').value.trim(), cref = $('#colorRef').value.trim(), guess = $('#deepGuess').value.trim();
+  const prompt = DEEP_PROMPT + '\n\n' +
+    'Attached photos, in order:\n' + order.map((k, i) => `${i + 1}. ${labels[k]}`).join('\n') + '\n\n' +
+    `Perforation gauge in the main photo: ${$('#gaugeType').value}.\n` +
+    `Known color in the main photo: ${cref || 'none stated'}.\n` +
+    (own ? `Owner's physical gauge reading (treat as ground truth): ${own}.\n` : '') +
+    (guess ? `Owner's guess: ${guess}. Check it, do not just confirm it.\n` : '') +
+    `\nReply with one JSON object and nothing else, in this shape:\n${DEEP_SCHEMA}`;
+  try {
+    const data = await s.json(prompt, {
+      images: order.map(k => deep.imgs[k].blob), modelTier: tierOf(cfg().deepTier), signal: deep.abort.signal,
+      onText: () => { tm.extra = ', writing up'; }
+    });
+    if (!data || !data.identification) out.innerHTML = errBox('The reply was not in a readable format. Try again.', JSON.stringify(data || '').slice(0, 2000));
+    else { deep.result = data; renderDeep(data); }
+  } catch (e) {
+    if (e && e.code === 'cancelled') out.innerHTML = '';
+    else out.innerHTML = errBox(sampleMsg(e), e && e.code === 'invalid_json' ? e.text : '');
+  } finally { tm.stop(); st.textContent = ''; go.disabled = false; cn.hidden = true; }
+};
+
+function kv(label, val, note) {
+  val = txt(val).trim(); note = txt(note).trim();
+  if (!val && !note) return '';
+  return `<div><dt>${esc(label)}</dt><dd>${esc(val || 'Not determined')}${note ? `<span class="n">${esc(note)}</span>` : ''}</dd></div>`;
+}
+function renderDeep(d) {
+  const id = d.identification || {}, m = d.measurements || {}, v = d.value || {}, cond = d.condition || {}, gr = d.grade || {};
+  const perf = m.perforation || {}, shade = m.shade || {};
+  const lo = num(v.low), hi = num(v.high);
+  const cands = arr(id.candidates).filter(c => c && (c.scott || c.description));
+  const perfTxt = [perf.horizontal && 'horizontal ' + txt(perf.horizontal), perf.vertical && 'vertical ' + txt(perf.vertical), perf.type].filter(Boolean).join(', ');
+  const vars = arr(d.variety_check).filter(x => x && x.variety);
+  const grades = arr(v.by_grade).filter(g => g && g.grade);
+  const rar = ['common', 'uncommon', 'scarce', 'rare'].includes(d.rarity) ? d.rarity : '';
+  const score = num(gr.score);
+  const at = score == null ? -1 : Math.max(0, Math.min(9, Math.round((100 - score) / 10)));
+  let h = `<div class="card sheet">
+      <p class="eyebrow">${esc(id.type_label || 'stamp')}</p>
+      <h3 class="big">${esc([id.country, id.years || id.year].filter(Boolean).join(' · ') || id.summary || 'Identification')}</h3>
+      <p class="sub">${esc([id.denomination, id.series || id.issue].filter(Boolean).join(' · '))}</p>
+      ${id.summary ? `<p class="note">${esc(id.summary)}</p>` : ''}
+      <div class="chips2">
+        ${gr.label ? `<div class="chip2 grade"><b>${esc(gr.label)}</b><small>Grade</small></div>` : ''}
+        ${rar ? `<div class="chip2 ${rar}"><b>${esc(rar[0].toUpperCase() + rar.slice(1))}</b><small>Rarity</small></div>` : ''}
+        ${id.type_label ? `<div class="chip2"><b>${esc(id.type_label[0].toUpperCase() + id.type_label.slice(1))}</b><small>Type</small></div>` : ''}
+      </div>
+      <p class="scott">Confidence ${dots(id.confidence)}</p>
+      ${id.confidence_reason ? `<p class="note">${esc(id.confidence_reason)}</p>` : ''}
+    </div>
+    <div class="card"><p class="eyebrow">Estimated value</p>
+      <div class="hero">${vstamp(lo, hi, false, 'gold')}
+        <div class="imeta">${v.for_candidate ? `<p class="sub">For ${esc(v.for_candidate)}. An estimate, not a looked-up price.</p>` : '<p class="sub">An estimate, not a looked-up price.</p>'}
+        ${v.note ? `<p class="note">${esc(v.note)}</p>` : ''}</div></div>
+      ${links(id.search_query, 6)}
+    </div>`;
+  if (gr.label || at >= 0 || cond.centering || cond.perforations || cond.margins || cond.freshness) {
+    h += `<div class="card"><p class="eyebrow">Condition assessment</p>
+      ${at >= 0 ? `<div class="scale" aria-hidden="true">${Array.from({ length: 10 }, (_, i) => `<i class="${i === at ? 'at' : ''}"></i>`).join('')}</div><div class="ends"><span>Superb</span><span>Poor</span></div>` : ''}
+      ${gr.label ? `<h3 style="margin-top:8px;color:var(--text)">${esc(gr.label)}${score != null ? ` (${score})` : ''}</h3>` : ''}
+      <dl class="kv">${kv('Centering', cond.centering)}${kv('Perforations', cond.perforations)}${kv('Margins', cond.margins)}${kv('Freshness', cond.freshness)}</dl>
+      <p class="help">Photo-based. Gum, thin spots and creases need a look in hand.</p></div>`;
+  }
+  if (cands.length) {
+    h += `<div class="card"><h3>Candidates</h3><table class="t"><tr><th>Scott</th><th>What it is</th><th>Odds</th></tr>${cands.map(c =>
+      `<tr><td>${esc(c.scott || '')}</td><td>${esc(c.description || '')}</td><td>${esc(num(c.confidence) ?? '?')}%</td></tr>`).join('')}</table></div>`;
+  }
+  const meas = [
+    kv('Perforation', perfTxt, [perf.note, num(perf.confidence) != null ? `Photo-based estimate, ${num(perf.confidence)}% sure. Confirm with the physical gauge.` : ''].filter(Boolean).join(' ')),
+    kv('Shade', shade.name, [shade.note, num(shade.confidence) != null ? `${num(shade.confidence)}% sure. Phone photos shift color; compare against a color guide in daylight.` : ''].filter(Boolean).join(' ')),
+    kv('Cancel', m.cancel), kv('Watermark', m.watermark), kv('Paper', m.paper), kv('Printing', m.printing), kv('Gum or back', m.gum_or_back)
+  ].join('');
+  if (meas) h += `<div class="card"><p class="eyebrow">Physical details</p><dl class="kv">${meas}</dl></div>`;
+  if (d.historical_context) h += `<div class="card"><p class="eyebrow">Historical context</p><p>${esc(d.historical_context)}</p></div>`;
+  if (vars.length) {
+    h += `<div class="card"><h3>Varieties that change the value</h3>${vars.map(x => {
+      const t = ['consistent', 'inconsistent', 'cannot tell'].includes(x.this_stamp) ? x.this_stamp : 'cannot tell';
+      return `<div class="var"><b>${esc(x.variety)}</b><span class="verdict ${t.replace(' ', '-')}">${esc(t)}</span>
+        ${x.how_to_tell ? `<p>${esc(x.how_to_tell)}</p>` : ''}${x.value_impact ? `<p class="sub">${esc(x.value_impact)}</p>` : ''}</div>`;
+    }).join('')}</div>`;
+  }
+  if (grades.length) {
+    h += `<div class="card"><h3>Value by grade</h3><table class="t"><tr><th>Grade</th><th>Range</th></tr>${grades.map(g => `<tr><td>${esc(g.grade)}</td><td>${esc(txt(g.range))}</td></tr>`).join('')}</table></div>`;
+  }
+  const vn = arr(d.verify_next).filter(Boolean);
+  if (vn.length) h += `<div class="card"><h3>To settle it</h3><ul class="todo">${vn.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  const rf = arr(d.red_flags).filter(Boolean);
+  if (rf.length) h += `<div class="card" style="border-left:4px solid var(--red)"><p class="eyebrow" style="color:var(--red)">Warnings</p><ul class="flags">${rf.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  h += `<div class="actions"><button class="ghost" id="deepSave">Save to ledger</button><button class="ghost" id="deepAgain">Identify another</button></div>`;
+  const out = $('#deepOut'); out.innerHTML = h;
+  $('#deepSave').onclick = async e => {
+    const b = e.target; b.disabled = true;
+    const best = cands[0] || {};
+    const ok = await addEntry({ label: id.summary, country: id.country, year: id.years || id.year, scott: best.scott || '', low: lo, high: hi, flagged: false,
+      query: id.search_query, thumb: deep.imgs.main ? deep.imgs.main.thumb : '', note: id.confidence_reason, from: 'deep' }, true);
+    b.textContent = ok ? 'Saved' : 'Could not save'; b.disabled = ok;
+  };
+  $('#deepAgain').onclick = () => {
+    $$('#idSlots .slot').forEach(l => { const k = l.dataset.slot; freePhoto(deep.imgs[k]); delete deep.imgs[k]; drawSlot(l, deep.imgs, k); });
+    $('#deepOut').innerHTML = ''; window.scrollTo(0, 0);
+  };
+}
+
+/* ---------- RARE CHECK: 1c Franklin, 2c Washington (and 2c Jackson grills) ---------- */
+/* Every price below is a listing seen on the named page this session, with the condition the listing gave. Nothing here is a catalog value. */
+const RARE = [
+  { id: 'type1', title: '1851 1¢ Franklin, early types (Type I and its close relatives)', scott: 'Scott 5 is Type I; the other early types have their own numbers',
+    face: ['franklin'], edges: ['imperf'], grill: ['no'], perf: [], wm: ['none'], q: 'US 1851 1c Franklin imperf Type I Scott 5',
+    value: { basis: 'noted', text: 'No catalog value pulled for Type I, so no price here. Scott 5 (Type I) is the rarest of the 1851 1¢ types, about 30,000 issued. For contrast, Jay Smith listed Scott 7 (Type II) used, VF at $109 and Scott 9 (Type IV) used, Fine at $59.' },
+    tests: [
+      'Imperforate with a classic Franklin bust in an ornate frame, "U.S. POSTAGE" at top, "ONE CENT" at the bottom. Four clear margins.',
+      'Look at the bottom: Type I has the complete scrolls curling into small balls under "ONE CENT", and complete ornaments at the top. If either is missing it is a later, cheaper type. Type IV has re-cut frame lines.',
+      'Cheap copies of later types are everywhere, so the type is the whole question. Compare against a catalog picture of each type under a loupe.',
+      'Fake risk: a perforated stamp with the perfs trimmed off. Look for a perfectly straight edge, tiny scalloped stubs, and margins that are thinner than the stamp design allows.'
+    ] },
+  { id: 'perf1857', title: '1857-61 1¢ Franklin, perforated early types', scott: 'Scott 18 to 24; Type V (Scott 24) is the common one',
+    face: ['franklin'], edges: ['perf'], grill: ['no'], perf: ['15'], wm: ['none'], q: 'US 1c Franklin 1857 perf Type IIIa Scott 22',
+    value: { basis: 'listed', text: 'Scott 22 (Type IIIa) used, F-VF: $349. Scott 24 (Type V) used: $19 to $119 depending on centering. Jay Smith dealer listings.' },
+    tests: [
+      'Perforated about 15, no grill, same Franklin frame design as the imperforates.',
+      'Apply the same top and bottom ornament test. Both ornaments cut away usually means the common Type V. A perforated copy with a complete ornament is worth a closer look.',
+      'Perforation must be even and complete on all four sides. Added perfs are a known fake.'
+    ] },
+  { id: 'z1', title: '1867 1¢ Franklin with a Z grill', scott: 'Scott 85A',
+    face: ['franklin'], edges: ['perf'], grill: ['yes'], perf: ['12'], wm: ['none'], q: 'US 85A 1c Z grill',
+    value: { basis: 'noted', text: 'Two copies are recorded. One sold for $4.4 million in June 2024. The odds that yours is a third are essentially nil.' },
+    tests: [
+      'A Z grill has horizontal ridges (points run side to side) and about 13 to 14 columns by 18 rows.',
+      'On a 1¢ blue Franklin, a grill that looks Z is almost always an E or F grill, or a fake. Count rows and columns before you get excited.'
+    ] },
+  { id: 'z2', title: '1868 2¢ Jackson (black) with a Z grill', scott: 'Scott 85B',
+    face: ['jackson'], edges: ['perf'], grill: ['yes'], perf: ['12'], wm: ['none'], q: 'US 85B 2c Jackson Z grill',
+    value: { basis: 'listed', text: 'Used, F-VF+, with a Philatelic Foundation certificate: $1,100 (Jay Smith dealer listing).' },
+    tests: [
+      'Black 2¢ Jackson with horizontal ridges, about 13 to 14 columns by 18 rows.',
+      'Rows must be perfectly straight and the count exact. Stamp Smarter calls crooked or miscounted rows the biggest sign of a fake.',
+      'Needs an expert certificate before it is worth the listed price.'
+    ] },
+  { id: 'd2', title: '1867 2¢ Jackson with a D grill', scott: 'Scott 84',
+    face: ['jackson'], edges: ['perf'], grill: ['yes'], perf: ['12'], wm: ['none'], q: 'US 84 2c Jackson D grill',
+    value: { basis: 'noted', text: 'No source-verified value pulled, so no price here. If the grill checks out, it is worth a certificate before you decide anything.' },
+    tests: ['Grill points face down, about 15 columns by 17 or 18 rows, covering most of the stamp.', 'Compare against a certified copy; D, E and F grills differ mainly in size and count.'] },
+  { id: 'e', title: '1867-68 1¢ and 2¢ with an E grill', scott: '1¢ is Scott 86, 2¢ Jackson is Scott 87',
+    face: ['franklin', 'jackson'], edges: ['perf'], grill: ['yes'], perf: ['12'], wm: ['none'], q: 'US 86 1c Franklin E grill',
+    value: { basis: 'listed', text: 'Scott 86 used: $335 (VF) and $119 (Average-Fine). Jay Smith dealer listings.' },
+    tests: ['Points face down and the ridges run vertically (IIII). About 14 columns by 15 to 17 rows.', 'Rows must be straight. Often easiest to see with the stamp tilted under a raking light.'] },
+  { id: 'f', title: '1868 1¢ and 2¢ with an F grill', scott: '1¢ is Scott 92, 2¢ Jackson is Scott 93',
+    face: ['franklin', 'jackson'], edges: ['perf'], grill: ['yes'], perf: ['12'], wm: ['none'], q: 'US 92 1c Franklin F grill',
+    value: { basis: 'listed', text: 'Scott 92 used, Average: $79. Scott 93 mint: $79 to $189 depending on the copy. Jay Smith dealer listings.' },
+    tests: ['The smaller grill: about 11 to 12 columns by 15 to 17 rows, points down.', 'The common one of the grilled stamps, but still worth many times a plain stamp.'] },
+  { id: 'lake', title: '1890 2¢ Washington, lake shade', scott: 'Scott 219D (the carmine 2¢ is Scott 220)',
+    face: ['washington'], edges: ['perf'], grill: ['no'], perf: ['12'], wm: ['none'], q: 'US 219D 2c Washington lake',
+    value: { basis: 'listed', text: '$275 on a Mystic Stamp page (one price, condition not stated).' },
+    tests: [
+      'Perf 12, unwatermarked, small Washington portrait. The lake shade is reddish purple; the carmine 2¢ (Scott 220) is a cleaner red.',
+      'Judge color in daylight on white paper, next to a common 2¢ carmine. Photos shift color, so this one needs a copy in hand.',
+      'Shade calls drive the price, so get a certificate if it looks purplish.'
+    ] },
+  { id: 'tri', title: '1894-98 2¢ Washington triangle types', scott: 'Unwatermarked 248 to 252; watermarked 265 to 267 and 279B',
+    face: ['washington'], edges: ['perf'], grill: ['no'], perf: ['12'], wm: ['none', 'usps'], q: 'US 2c Washington triangle Type I Scott 248',
+    value: { basis: 'noted', text: 'Types are catalogued separately. No price pulled here. Check the type before anything else, because that is what decides which Scott number it is.' },
+    tests: [
+      'Look at the triangles in the upper corners. Type I: lines run solid through the frame. Type II: lines run through but are thinner inside the triangle. Type III: no lines run through the frame. Type IV: same as III but much of the design is recut.',
+      'Type III vs IV: Type IV has a lengthened line in the hair, a toga button wider than tall, stronger ear dots, a jagged portrait oval and a straight inner right edge on the T of TWO.',
+      'A watermarked stamp used before November 1897 is Type III. Plate number 505 or higher is Type IV.'
+    ] },
+  { id: 'booklet', title: '1910 1¢ Franklin booklet pane', scott: 'Scott 374a',
+    face: ['franklin'], edges: ['perf'], grill: ['no'], perf: ['12'], wm: ['usps'], q: 'US 374a 1c Franklin booklet pane',
+    value: { basis: 'listed', text: 'Never hinged pane: $225 (Jay Smith dealer listing). A single is worth far less.' },
+    tests: ['It is the whole pane that carries the value: stamps joined with a straight selvedge edge on one or two sides.', 'Single-line watermark (letters U S P S), green, perf 12.'] },
+  { id: 'imperf', title: 'Washington-Franklin imperforates', scott: 'Scott 408 (1¢) and 409 (2¢); Scott 532 is the 2¢ offset Type IV imperforate',
+    face: ['franklin', 'washington'], edges: ['imperf'], grill: ['no'], perf: [], wm: ['none', 'usps'], q: 'US 532 2c Washington imperforate Type IV plate block',
+    value: { basis: 'listed', text: 'Singles: no price pulled here. The money I found is in plate blocks: a Scott 532 top plate block of six, never hinged, listed at $465 (the listing cites a catalog value of $675+). Jay Smith dealer listing.' },
+    tests: ['Genuine imperforates have full margins and no perf stubs. Cut-down perforated stamps are the common fake.', 'Blocks and plate blocks are where the listed money was. Get a single checked for cut-down perfs before you hope.'] },
+  { id: 'coil', title: 'Washington-Franklin coils', scott: '1910 coils: Scott 390 (1¢) and 391 (2¢), perf 8.5 one way',
+    face: ['franklin', 'washington'], edges: ['perf'], grill: ['no'], perf: ['8.5', '12', '10'], wm: ['usps', 'none'], q: 'US 391 2c Washington coil perf 8.5',
+    value: { basis: 'listed', text: 'Scott 390 (1¢) never hinged, F-VF: $4.75; a dark green line pair: $26. Scott 391 (2¢) used: $26 to $49 depending on centering. The dearest 1¢/2¢ item on that page was $69 (a Scott 412 line strip of four). Jay Smith dealer listings.' },
+    tests: ['Coils are perforated on two opposite sides only; the other two sides are straight cut.', 'Looks rare and is not. Tens of dollars, at most.'] }
+];
+const rare = { ans: {}, imgs: {}, abort: null };
+const RARE_Q = ['face', 'edges', 'grill', 'perf', 'wm'];
+function rareMatch(e) {
+  for (const q of RARE_Q) {
+    const a = rare.ans[q]; if (!a) continue;
+    const list = q === 'perf' ? e.perf : e[q];
+    if (q === 'perf') { if (!e.perf.length) return false; if (!e.perf.includes(a)) return false; continue; }
+    if (!list.includes(a)) return false;
+  }
+  return true;
+}
+function rareCard(e, out, open) {
+  const v = e.value || {};
+  const tag = v.basis === 'listed' ? '<span class="tag listed">listed price</span>' : '<span class="tag">no price pulled</span>';
+  return `<article class="item rarecard ${out ? 'out' : (v.basis === 'listed' && /\$[1-9],?\d{3}|\$\d{3}/.test(v.text) ? 'gold' : '')}">
+    <h3>${esc(e.title)}</h3>
+    <p class="sub"><b>${esc(e.scott)}</b></p>
+    <div class="tags">${tag}</div>
+    <p class="note">${esc(v.text)}</p>
+    <details class="how"${open ? ' open' : ''}><summary>How to test it</summary>
+    <ul class="todo">${e.tests.map(t => `<li>${esc(t)}</li>`).join('')}</ul></details>
+    ${links(e.q, 4)}
+  </article>`;
+}
+function renderRare() {
+  const yes = RARE.filter(rareMatch), no = RARE.filter(e => !rareMatch(e));
+  const answered = RARE_Q.filter(q => rare.ans[q]).length;
+  let h = `<div class="card overall"><h3>${answered ? `${yes.length} still possible` : 'The full watch-list'}</h3>
+    <p>${answered ? 'These are what your answers have not ruled out. Not ruled out is not the same as likely. For most 1¢ and 2¢ stamps the honest answer is a few cents, and the list below is why you test instead of hope.' : 'Twelve things worth testing for. Answer the questions above to narrow it down.'}</p></div>`;
+  h += yes.map(e => rareCard(e, false, answered > 0 && yes.length <= 4)).join('');
+  if (!yes.length) h += `<div class="notice">Nothing on the watch-list matches those answers. That points to a common stamp. If a detail is a guess, clear that answer and check again.</div>`;
+  if (no.length && answered) h += `<details class="how"><summary>Ruled out by your answers (${no.length})</summary>${no.map(e => rareCard(e, true)).join('')}</details>`;
+  $('#rareOut').innerHTML = h;
+}
+$$('.seg').forEach(seg => {
+  const q = seg.dataset.q;
+  $$('button', seg).forEach(b => b.onclick = () => {
+    rare.ans[q] = rare.ans[q] === b.dataset.v ? '' : b.dataset.v;
+    $$('button', seg).forEach(x => x.setAttribute('aria-pressed', String(rare.ans[q] === x.dataset.v)));
+    renderRare();
+  });
+});
+slotGrid($('#rareSlots'), [
+  { key: 'front', main: true, label: 'Front (required)', hint: 'Flat, daylight, fill the frame' },
+  { key: 'back', label: 'Back', hint: 'Paper and gum' },
+  { key: 'light', label: 'Side light', hint: 'Light from low on one side, for grill ridges' }
+], rare.imgs);
+$('#rareCancel').onclick = () => rare.abort && rare.abort.abort();
+$('#rareGo').onclick = async () => {
+  if (!rare.imgs.front) return toast('Add the front photo first.');
+  const out = $('#rareAI'), st = $('#rareStatus'), go = $('#rareGo'), cn = $('#rareCancel');
+  out.innerHTML = ''; go.disabled = true; cn.hidden = false;
+  const s = await needSample(out, true);
+  if (!s) { go.disabled = false; cn.hidden = true; return; }
+  rare.abort = new AbortController();
+  const tm = withTimer(st, 'Screening');
+  const lab = { front: 'front of the stamp', back: 'back of the stamp', light: 'front under low side light, to show grill ridges and surface' };
+  const order = ['front', 'back', 'light'].filter(k => rare.imgs[k]);
+  const list = RARE.map(e => ({ id: e.id, title: e.title, scott: e.scott, tests: e.tests }));
+  const known = RARE_Q.filter(q => rare.ans[q]).map(q => `${q}: ${rare.ans[q]}`).join(', ') || 'nothing stated';
+  const prompt = `You are a careful US philatelist screening a phone photo of a 1 cent Franklin or 2 cent Washington/Jackson stamp against a fixed watch-list of valuable varieties. For each item on the list, say whether the photo is consistent with it, inconsistent with it, or cannot tell, and give the reason in one plain sentence tied to the listed tests.
+
+Hard rules:
+- Never say a stamp is genuine, authentic or rare. You can only say what the photo is consistent or inconsistent with, and what the photo cannot show.
+- A photo cannot count perforation teeth precisely, show a watermark, or prove a grill. Say "cannot tell" when that is the deciding test.
+- Be blunt. Most stamps like this are common and worth cents. If the photo looks like a common stamp, say that in bottom_line.
+- Use only the ids on the list.
+
+Attached photos, in order:
+${order.map((k, i) => `${i + 1}. ${lab[k]}`).join('\n')}
+
+What the owner says they can see: ${known}.
+
+Watch-list (JSON):
+${JSON.stringify(list)}
+
+Reply with one JSON object and nothing else:
+{"read": "two sentences on what the stamp appears to be",
+ "matches": [{"id": "", "verdict": "possible|ruled out|cannot tell", "why": ""}],
+ "next_photos": [""], "bottom_line": "one blunt sentence"}`;
+  try {
+    const data = await s.json(prompt, { images: order.map(k => rare.imgs[k].blob), modelTier: tierOf(cfg().deepTier), signal: rare.abort.signal, onText: () => { tm.extra = ', writing up'; } });
+    renderRareAI(data);
+  } catch (e) {
+    if (e && e.code === 'cancelled') out.innerHTML = '';
+    else out.innerHTML = errBox(sampleMsg(e), e && e.code === 'invalid_json' ? e.text : '');
+  } finally { tm.stop(); st.textContent = ''; go.disabled = false; cn.hidden = true; }
+};
+function renderRareAI(d) {
+  const byId = Object.fromEntries(RARE.map(e => [e.id, e]));
+  const ms = arr(d && d.matches).filter(m => m && byId[m.id]);
+  const rank = { possible: 0, 'cannot tell': 1, 'ruled out': 2 };
+  ms.sort((a, b) => (rank[a.verdict] ?? 1) - (rank[b.verdict] ?? 1));
+  let h = `<div class="card overall"><h3>Screening result</h3>${d.read ? `<p class="sub">${esc(d.read)}</p>` : ''}${d.bottom_line ? `<p>${esc(d.bottom_line)}</p>` : ''}
+    <p class="help">This is a read of a photo, not an authentication.</p></div>`;
+  h += ms.map(m => {
+    const e = byId[m.id], v = ['possible', 'ruled out', 'cannot tell'].includes(m.verdict) ? m.verdict : 'cannot tell';
+    return `<article class="item ${v === 'ruled out' ? 'out' : ''}"><h3>${esc(e.title)}<span class="verdict ${v === 'ruled out' ? 'ruled' : v === 'possible' ? 'possible' : ''}">${esc(v)}</span></h3>
+      <p class="sub">${esc(e.scott)}</p><p class="note">${esc(m.why || '')}</p></article>`;
+  }).join('');
+  const np = arr(d && d.next_photos).filter(Boolean);
+  if (np.length) h += `<div class="card"><h3>Photograph next</h3><ul class="todo">${np.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  $('#rareAI').innerHTML = h;
+}
+renderRare();
+
+/* ---------- SEARCH ---------- */
+const PRESETS = ['US 1c Franklin imperf Type I Scott 5', 'US 86 1c Franklin E grill', 'US 85B 2c Jackson Z grill', 'US 219D 2c Washington lake', 'US 374a 1c Franklin booklet pane', 'US 532 2c Washington imperforate'];
+function drawSearch() {
+  const q = $('#q').value.trim(), e = encodeURIComponent(q);
+  $('#sgrid').innerHTML = q
+    ? SITES.map(([t, f, key]) => `<a class="lnk ${key ? 'key' : ''}" href="${f(e)}" target="_blank" rel="noopener" data-site="1">${t}</a>`).join('')
+    : `<p class="help" style="grid-column:1/-1">Type a search above and the buttons appear.</p>`;
+  $$('#sgrid a').forEach(a => a.onclick = () => rememberSearch(q));
+}
+$('#presets').innerHTML = PRESETS.map(p => `<button type="button">${esc(p)}</button>`).join('');
+$$('#presets button').forEach(b => b.onclick = () => { $('#q').value = b.textContent; drawSearch(); });
+$('#q').addEventListener('input', drawSearch);
+function rememberSearch(q) {
+  if (!q) return;
+  const list = [q, ...LS.get('recent', []).filter(x => x !== q)].slice(0, 8);
+  LS.set('recent', list); drawRecent();
+}
+function drawRecent() {
+  const list = LS.get('recent', []);
+  $('#recentWrap').innerHTML = list.length ? `<h2>Recent searches</h2><div class="pre">${list.map(p => `<button type="button">${esc(p)}</button>`).join('')}</div>` : '';
+  $$('#recentWrap button').forEach(b => b.onclick = () => { $('#q').value = b.textContent; drawSearch(); window.scrollTo(0, 0); });
+}
+$('#descGo').onclick = async () => {
+  const d = $('#desc').value.trim(); if (!d) return toast('Describe the stamp first.');
+  const out = $('#descOut'), st = $('#descStatus'), go = $('#descGo');
+  out.innerHTML = ''; go.disabled = true; st.textContent = 'Writing searches';
+  const s = await needSample(out, false);
+  if (!s) { go.disabled = false; st.textContent = ''; return; }
+  try {
+    const data = await s.json(`You help a stamp collector search eBay sold listings and stamp catalogs. Write 5 distinct search strings, 3 to 8 words each, that a collector would type to find this exact item. Vary them: one with a Scott number if you are fairly sure of it, one by country and design, one by variety or feature, one broader, one for finding lookalikes to compare. Do not invent Scott numbers you are not fairly sure of.\n\nItem: ${d}\n\nReply with only a JSON array of 5 strings.`, { modelTier: 'quick' });
+    const qs = arr(data).map(String).filter(Boolean).slice(0, 6);
+    out.innerHTML = qs.length ? `<div class="pre">${qs.map(p => `<button type="button">${esc(p)}</button>`).join('')}</div><p class="help">Tap one to put it in the search box at the top.</p>` : errBox('No searches came back. Try again.');
+    $$('#descOut button').forEach(b => b.onclick = () => { $('#q').value = b.textContent; drawSearch(); window.scrollTo(0, 0); });
+  } catch (e) { out.innerHTML = errBox(sampleMsg(e)); }
+  finally { go.disabled = false; st.textContent = ''; }
+};
+drawSearch(); drawRecent();
+
+/* ---------- LEDGER (private per-person db, browser storage as fallback) ---------- */
+let ledger = [];
+let filter = 'all';
+let col = null;
+let mode = 'pending';
+let loadTimer = null, stale = false;
+
+const clean = o => JSON.parse(JSON.stringify(o));
+const storeReady = (async () => {
+  let db = null, id = null;
+  if (hasClaude()) {
+    try { db = await window.claude.use('db'); } catch (e) { db = null; }
+    try { const u = await window.claude.use('user'); id = u ? await u.id() : null; } catch (e) { id = null; }
+  }
+  if (db && id) {
+    try {
+      col = db.doc('data/users/' + id + '/book').collection('ledger');
+      mode = 'db';
+      loadTimer = setTimeout(() => { stale = true; renderLedger(); }, 10000);
+      col.orderBy('ts', 'desc').limit(1000).onSnapshot(snap => {
+        if (!snap.metadata.fromCache) { clearTimeout(loadTimer); stale = false; }
+        ledger = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+        renderLedger();
+      }, err => { clearTimeout(loadTimer); stale = false; toEnd(err); });
+      return;
+    } catch (e) { col = null; }
+  }
+  toLocal();
+})();
+function toLocal() { mode = 'local'; col = null; ledger = LS.get('ledger', []); renderLedger(); }
+function toEnd(err) {
+  mode = 'local'; col = null;
+  $('#ledgerNote').innerHTML = `<div class="notice">Your saved list could not be reached (${esc(err && err.code || 'error')}). New saves will go to this browser only. Reload the page to try again.</div>`;
+}
+function persistLocal() { if (!LS.set('ledger', ledger)) toast('Browser storage is full or blocked. Use Copy list or Back up.'); }
+
+async function addEntry(e, announce) {
+  await storeReady;
+  const entry = clean({ ts: Date.now(), status: 'check', notes: '', ...e });
+  const id = uid();
+  try {
+    if (mode === 'db' && col) await col.doc(id).set(entry);
+    else { ledger.unshift({ ...entry, id }); persistLocal(); renderLedger(); }
+    if (announce) toast('Saved to ledger');
+    return true;
+  } catch (err) {
+    toast(err && err.code === 'quota_exceeded' ? 'The ledger is full. Delete some entries.' : 'Could not save that entry.');
+    return false;
+  }
+}
+async function patchEntry(id, fields) {
+  try {
+    if (mode === 'db' && col) await col.doc(id).update(fields);
+    else { const r = ledger.find(x => x.id === id); if (r) Object.assign(r, fields); persistLocal(); }
+  } catch (err) { toast('Could not save that change.'); }
+}
+async function removeEntry(id) {
+  try {
+    if (mode === 'db' && col) await col.doc(id).delete();
+    else { ledger = ledger.filter(x => x.id !== id); persistLocal(); renderLedger(); }
+  } catch (err) { toast('Could not delete that entry.'); }
+}
+async function wipeAll() {
+  const ids = ledger.map(r => r.id);
+  if (mode === 'db' && col) { for (const id of ids) { try { await col.doc(id).delete(); } catch (e) { break; } } }
+  else { ledger = []; LS.del('ledger'); renderLedger(); }
+}
+
+function renderLedger() {
+  const rows = ledger.filter(r => filter === 'all' || r.status === filter);
+  let lo = 0, hi = 0;
+  ledger.forEach(r => { lo += num(r.low) || 0; hi += num(r.high) || 0; });
+  $('#ledgerTotals').innerHTML = `<div class="totals"><span><b>${ledger.length}</b> saved</span><span>Rough total <b>${esc(range(lo, hi))}</b></span></div>
+    <p class="help">Estimates added together. Treat the total as a ceiling, not an offer.</p>`;
+  $('#ledgerWhere').textContent = mode === 'db'
+    ? 'Saved to your Claude account for this page. Only you can see it, and it stays when you close the page.'
+    : mode === 'local' ? 'Saved in this browser only. Back up now and then, because clearing site data wipes the list.' : 'Opening your saved list.';
+  if (stale && mode === 'db') $('#ledgerNote').innerHTML = `<div class="notice">Your saved list has not answered yet. What you see may be out of date.</div>`;
+  else if (mode === 'db') $('#ledgerNote').innerHTML = '';
+  const f = [['all', 'All'], ['check', 'To check'], ['keep', 'Keep'], ['sell', 'Sell']];
+  $('#ledgerChips').innerHTML = f.map(([k, t]) => `<button class="chip" data-f="${k}" aria-pressed="${filter === k}">${t}</button>`).join('');
+  $$('#ledgerChips .chip').forEach(b => b.onclick = () => { filter = b.dataset.f; renderLedger(); });
+  const list = $('#ledgerList');
+  if (!rows.length) {
+    list.innerHTML = `<div class="empty">${ledger.length ? 'Nothing in this filter.' : 'Nothing saved yet. Save scan results here to keep a running list of what is worth selling.'}</div>`;
+    return;
+  }
+  const ae = document.activeElement;
+  const focusId = ae && ae.dataset && ae.dataset.act === 'notes' && ae.closest('[data-id]') ? ae.closest('[data-id]').dataset.id : null;
+  list.innerHTML = rows.map(r => {
+    const rg = range(r.low, r.high);
+    return `<article class="item ${r.flagged ? 'flag' : ''}" data-id="${esc(r.id)}">
+      <div class="entry">
+        ${r.thumb ? `<div class="mount"><img src="${esc(r.thumb)}" alt=""></div>` : ''}
+        <div class="imeta"><h3>${esc(r.label || 'Untitled')}</h3>
+          <p class="sub">${[r.country, r.year, r.scott && 'Scott ' + r.scott].filter(Boolean).map(esc).join(', ')}</p>
+          <p class="scott">${esc(rg)} <span class="pct">est., unchecked</span></p>
+        </div>
+      </div>
+      <div class="erow">
+        <select data-act="status" aria-label="Status"><option value="check"${r.status === 'check' ? ' selected' : ''}>To check</option><option value="keep"${r.status === 'keep' ? ' selected' : ''}>Keep</option><option value="sell"${r.status === 'sell' ? ' selected' : ''}>Sell</option></select>
+        <input type="text" data-act="notes" placeholder="Notes" value="${esc(r.notes)}" aria-label="Notes">
+        <button class="ghost danger" data-act="del">Delete</button>
+      </div>
+      ${links(r.query)}
+    </article>`;
+  }).join('');
+  if (focusId) { const el = $(`[data-id="${CSS.escape(focusId)}"] [data-act="notes"]`); if (el) el.focus(); }
+}
+$('#ledgerList').addEventListener('change', e => {
+  const card = e.target.closest('[data-id]'); if (!card) return;
+  const id = card.dataset.id;
+  if (e.target.dataset.act === 'status') patchEntry(id, { status: e.target.value }).then(() => { if (mode === 'local') renderLedger(); });
+  if (e.target.dataset.act === 'notes') patchEntry(id, { notes: e.target.value });
+});
+$('#ledgerList').addEventListener('click', async e => {
+  if (e.target.dataset.act !== 'del') return;
+  const card = e.target.closest('[data-id]');
+  if (!await askConfirm('Delete this entry?', 'Delete')) return;
+  removeEntry(card.dataset.id);
+});
+
+/* ---------- export ---------- */
+const COLS = ['label', 'country', 'year', 'scott', 'low', 'high', 'status', 'notes', 'query'];
+const csvText = () => {
+  const q = v => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+  return [COLS.join(',')].concat(ledger.map(r => COLS.map(c => q(r[c])).join(','))).join('\r\n');
+};
+const tsvText = () => {
+  const c = v => String(v ?? '').replace(/[\t\r\n]+/g, ' ');
+  return [COLS.join('\t')].concat(ledger.map(r => COLS.map(k => c(r[k])).join('\t'))).join('\n');
+};
+let downloads = null;
+(async () => { if (hasClaude()) { try { downloads = await window.claude.use('downloads'); } catch (e) { downloads = null; } }
+  if (downloads) { $('#exCsv').hidden = false; $('#exJson').hidden = false; } })();
+async function saveFile(filename, data) {
+  try { await downloads.save({ filename, data }); toast('Saved'); }
+  catch (e) { if (!e || e.code !== 'declined') toast('Could not save the file here. Use Copy list.'); }
+}
+$('#exCsv').onclick = () => { if (!ledger.length) return toast('Nothing to export yet.'); saveFile('loupe-ledger.csv', csvText()); };
+$('#exJson').onclick = () => { if (!ledger.length) return toast('Nothing to back up yet.'); saveFile('loupe-backup.json', JSON.stringify({ app: 'loupe', ledger })); };
+$('#exCopy').onclick = async () => {
+  if (!ledger.length) return toast('Nothing to copy yet.');
+  const t = tsvText();
+  try { await navigator.clipboard.writeText(t); toast('Copied. Paste into a spreadsheet.'); }
+  catch (e) { $('#copyText').value = t; $('#copyDlg').showModal(); $('#copyText').select(); }
+};
+$('#copyClose').onclick = () => $('#copyDlg').close();
+watchPicker($('#imJson'));
+$('#imJson').onchange = async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    const incoming = arr(d.ledger).filter(r => r && typeof r === 'object');
+    await storeReady;
+    const have = new Set(ledger.map(r => r.id));
+    let n = 0;
+    for (const r of incoming) {
+      const id = typeof r.id === 'string' && /^[A-Za-z0-9_\-]{1,60}$/.test(r.id) ? r.id : uid();
+      if (have.has(id)) continue;
+      const { id: _drop, ...rest } = r;
+      const entry = clean({ ts: Date.now(), status: 'check', notes: '', ...rest });
+      if (mode === 'db' && col) await col.doc(id).set(entry);
+      else ledger.push({ ...entry, id });
+      have.add(id); n++;
+    }
+    if (mode !== 'db') { ledger.sort((a, b) => (b.ts || 0) - (a.ts || 0)); persistLocal(); renderLedger(); }
+    toast(n + ' entries restored');
+  } catch (err) { toast('That file is not a Loupe backup.'); }
+};
+
+renderLedger();
+})();
+</script>
+</body>
+</html>
